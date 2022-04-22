@@ -67,7 +67,7 @@ class Mullvad:
             return False
         if "traffic will be blocked":
             return True
-        raise FailedToParseOutput()
+        raise FailedToParseOutput(repr(output))
 
     @classmethod
     def status(cls) -> Status:
@@ -77,7 +77,7 @@ class Mullvad:
             return Status(False)
         # TODO: Handle "Disconnecting...", "Connecting...", etc.
         pattern = r"^Connected to ([a-zA-Z]+) ([0-9\.\:]+) over ([a-zA-Z]+)$"
-        match re.match(pattern, parsed["tunnel status"].strip()):
+        match re.match(pattern, ts := parsed["tunnel status"].strip()):
             case re.Match() as m:
                 return Status(
                     connected=True,
@@ -86,7 +86,7 @@ class Mullvad:
                     connection_type=m.group(3),
                 )
             case _:
-                raise FailedToParseOutput()
+                raise FailedToParseOutput(repr(ts))
 
     @classmethod
     def status_full(cls) -> Status:
@@ -99,14 +99,14 @@ class Mullvad:
         else:
             # TODO: Handle "Disconnecting...", "Connecting...", etc.
             pattern = r"^Connected to ([a-zA-Z]+) ([0-9\.\:]+) over ([a-zA-Z]+)$"
-            match re.match(pattern, parsed["tunnel status"]):
+            match re.match(pattern, ts := parsed["tunnel status"].strip()):
                 case re.Match() as m:
                     connected = True
                     protocol = m.group(1)
                     server_address = m.group(2)
                     connection_type = m.group(3)
                 case _:
-                    raise FailedToParseOutput()
+                    raise FailedToParseOutput(repr(ts))
         return Status(
             connected=connected,
             protocol=protocol,
@@ -149,19 +149,19 @@ class Mullvad:
             leading_tabs = len(line[: len(line) - len(line.lstrip("\t"))])
             match leading_tabs:
                 case 0:  # Country
-                    match country_re.match(line.strip()):
+                    match country_re.match(sl := line.strip()):
                         case re.Match() as m:
                             country = m.groups()
                         case _:
-                            raise FailedToParseOutput()
+                            raise FailedToParseOutput(repr(sl))
                 case 1:  # City
-                    match city_re.match(line.strip()):
+                    match city_re.match(sl := line.strip()):
                         case re.Match() as m:
                             city = m.groups()
                         case _:
-                            raise FailedToParseOutput()
+                            raise FailedToParseOutput(sl)
                 case 2:
-                    match server_re.match(line.strip()):
+                    match server_re.match(sl := line.strip()):
                         case re.Match() as m:
                             relays.append(
                                 Relay(
@@ -178,9 +178,9 @@ class Mullvad:
                                 )
                             )
                         case _:
-                            raise FailedToParseOutput()
+                            raise FailedToParseOutput(sl)
                 case _:
-                    raise FailedToParseOutput()
+                    raise FailedToParseOutput(repr(line))
         return relays
 
     @classmethod
