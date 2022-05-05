@@ -1,4 +1,5 @@
 from __future__ import annotations
+import enum
 
 import re
 import subprocess
@@ -16,9 +17,16 @@ class FailedToParseOutput(MullvadErorr):
     pass
 
 
+class StatusName(enum.Enum):
+    CONNECTED = "connected"
+    DISCONNECTED = "disconnected"
+    CONNECTING = "connecting"
+
+
 @dataclass
 class Status:
     connected: bool
+    status: StatusName
     protocol: str = None
     server_address: str = None
     connection_type: str = None
@@ -70,53 +78,37 @@ class Mullvad:
         raise FailedToParseOutput(repr(output))
 
     @classmethod
-    def status(cls) -> Status:
-        output, _ = cls._execute(["mullvad", "status"])
+    def status(cls, full: bool = False) -> Status:
+        location_arg = ["--location"] if full else []
+        output, _ = cls._execute(["mullvad", "status", *location_arg])
         parsed = cls._parse_key_value_output(output)
         if "disconnected" in parsed["tunnel status"].lower():
-            return Status(False)
-        # TODO: Handle "Disconnecting...", "Connecting...", etc.
-        pattern = r"^Connected to ([a-zA-Z]+) ([0-9\.\:]+) over ([a-zA-Z]+)$"
+            return Status(
+                connected=False,
+                status=StatusName.DISCONNECTED,
+                ipv4=parsed.get("ipv4", None),
+                location=parsed.get("location", None),
+                position=parsed.get("position", None),
+            )
+        pattern = re.compile(
+            r"^((?:Connected)|(?:Connecting)) to ([a-zA-Z]+) ([0-9\.\:]+) over"
+            r" ([a-zA-Z]+)(?:\.\.\.)?$"
+        )
         match re.match(pattern, ts := parsed["tunnel status"].strip()):
             case re.Match() as m:
                 return Status(
-                    connected=True,
-                    protocol=m.group(1),
-                    server_address=m.group(2),
-                    connection_type=m.group(3),
+                    connected=(m.group(1).lower() == StatusName.CONNECTED.value),
+                    status=StatusName(m.group(1).lower()),
+                    protocol=m.group(2),
+                    server_address=m.group(3),
+                    connection_type=m.group(4),
+                    relay_hostname=parsed.get("relay", None),
+                    ipv4=parsed.get("ipv4", None),
+                    location=parsed.get("location", None),
+                    position=parsed.get("position", None),
                 )
             case _:
                 raise FailedToParseOutput(repr(ts))
-
-    @classmethod
-    def status_full(cls) -> Status:
-        # TODO: DRY
-        output, _ = cls._execute(["mullvad", "status", "--location"])
-        parsed = cls._parse_key_value_output(output)
-        if "disconnected" in parsed["tunnel status"].lower():
-            connected = False
-            protocol = server_address = connection_type = None
-        else:
-            # TODO: Handle "Disconnecting...", "Connecting...", etc.
-            pattern = r"^Connected to ([a-zA-Z]+) ([0-9\.\:]+) over ([a-zA-Z]+)$"
-            match re.match(pattern, ts := parsed["tunnel status"].strip()):
-                case re.Match() as m:
-                    connected = True
-                    protocol = m.group(1)
-                    server_address = m.group(2)
-                    connection_type = m.group(3)
-                case _:
-                    raise FailedToParseOutput(repr(ts))
-        return Status(
-            connected=connected,
-            protocol=protocol,
-            server_address=server_address,
-            connection_type=connection_type,
-            relay_hostname=parsed.get("relay", None),
-            ipv4=parsed["ipv4"],
-            location=parsed["location"],
-            position=parsed["position"],
-        )
 
     @classmethod
     def connect(cls, wait: bool = True) -> None:
