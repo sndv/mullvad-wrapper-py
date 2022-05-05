@@ -81,7 +81,8 @@ class Mullvad:
     def status(cls, full: bool = False) -> Status:
         location_arg = ["--location"] if full else []
         output, _ = cls._execute(["mullvad", "status", *location_arg])
-        parsed = cls._parse_key_value_output(output)
+        strict = False if full and "location data unavailable" in output.lower() else True
+        parsed = cls._parse_key_value_output(output, strict)
         if "disconnected" in parsed["tunnel status"].lower():
             return Status(
                 connected=False,
@@ -220,11 +221,13 @@ class Mullvad:
         return proc.stdout.decode(), proc.stderr.decode()
 
     @staticmethod
-    def _parse_key_value_output(output: str) -> dict[str, str]:
+    def _parse_key_value_output(output: str, strict: bool = True) -> dict[str, str]:
         result = {}
         for line in output.strip().splitlines():
             split_line = line.split(":", 1)
             if len(split_line) != 2:
-                raise FailedToParseOutput(output)
+                if strict:
+                    raise FailedToParseOutput(output)
+                continue
             result[split_line[0].strip().lower()] = split_line[1].strip()
         return result
