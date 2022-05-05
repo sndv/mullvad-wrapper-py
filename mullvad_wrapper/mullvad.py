@@ -221,7 +221,10 @@ class Mullvad:
 
     @staticmethod
     def _parse_key_value_output(output: str) -> dict[str, str]:
-        return {
-            (sl := line.split(":", 1))[0].strip().lower(): sl[1].strip()
-            for line in output.strip().splitlines()
-        }
+        result = {}
+        for line in output.strip().splitlines():
+            split_line = line.split(":", 1)
+            if len(split_line) != 2:
+                raise FailedToParseOutput(output)
+            result[split_line[0].strip().lower()] = split_line[1].strip()
+        return result
