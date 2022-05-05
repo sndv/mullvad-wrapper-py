@@ -130,17 +130,41 @@ class Mullvad:
     def reconnect(cls, wait: bool = True) -> None:
         cls._connection_change("reconnect", wait)
 
-    @classmethod
-    def relay_list(cls) -> list[Relay]:
-        output, _ = cls._execute(["mullvad", "relay", "list"])
+    @staticmethod
+    def _parse_relay_list_country_line(line: str) -> tuple[str, str]:
         country_re = re.compile(r"^([\w ]+) \(([a-z]+)\)$")
+        match country_re.match(sl := line.strip()):
+            case re.Match() as m:
+                return tuple(m.groups())
+            case _:
+                raise FailedToParseOutput(repr(sl))
+
+    @staticmethod
+    def _parse_relay_list_city_line(line: str) -> tuple[str, str, str]:
         city_re = re.compile(
             r"^([\w\,\[\] ]+) \(([a-z]+)\) \@ (\-?\d+\.\d+\°N\, \-?\d+\.\d+\°W)$"
         )
+        match city_re.match(sl := line.strip()):
+            case re.Match() as m:
+                return tuple(m.groups())
+            case _:
+                raise FailedToParseOutput(sl)
+
+    @staticmethod
+    def _parse_relay_list_server_line(line: str) -> tuple[str, str, str, str, str]:
         server_re = re.compile(
             r"^([a-z0-9\-]+) \(([0-9\.]+)(?:, ([0-9a-f\:]+))?\) \- ([a-zA-Z]+)\, hosted by"
             r" ([a-zA-Z0-9]+)$"
         )
+        match server_re.match(sl := line.strip()):
+            case re.Match() as m:
+                return tuple(m.groups())
+            case _:
+                raise FailedToParseOutput(sl)
+
+    @classmethod
+    def relay_list(cls) -> list[Relay]:
+        output, _ = cls._execute(["mullvad", "relay", "list"])
         country = city = None
         relays = []
         for line in output.splitlines():
@@ -148,37 +172,28 @@ class Mullvad:
                 continue
             leading_tabs = len(line[: len(line) - len(line.lstrip("\t"))])
             match leading_tabs:
-                case 0:  # Country
-                    match country_re.match(sl := line.strip()):
-                        case re.Match() as m:
-                            country = m.groups()
-                        case _:
-                            raise FailedToParseOutput(repr(sl))
-                case 1:  # City
-                    match city_re.match(sl := line.strip()):
-                        case re.Match() as m:
-                            city = m.groups()
-                        case _:
-                            raise FailedToParseOutput(sl)
-                case 2:
-                    match server_re.match(sl := line.strip()):
-                        case re.Match() as m:
-                            relays.append(
-                                Relay(
-                                    country=country[0],
-                                    country_code=country[1],
-                                    city=city[0],
-                                    city_code=city[1],
-                                    location=city[2],
-                                    hostname=m.group(1),
-                                    ipv4=m.group(2),
-                                    ipv6=m.group(3),
-                                    protocol=m.group(4),
-                                    provider=m.group(5),
-                                )
-                            )
-                        case _:
-                            raise FailedToParseOutput(sl)
+                case 0:  # Country line
+                    country = cls._parse_relay_list_country_line(line)
+                case 1:  # City line
+                    city = cls._parse_relay_list_city_line(line)
+                case 2:  # Server line
+                    hostname, ipv4, ipv6, protocol, provider = cls._parse_relay_list_server_line(
+                        line
+                    )
+                    relays.append(
+                        Relay(
+                            country=country[0],
+                            country_code=country[1],
+                            city=city[0],
+                            city_code=city[1],
+                            location=city[2],
+                            hostname=hostname,
+                            ipv4=ipv4,
+                            ipv6=ipv6,
+                            protocol=protocol,
+                            provider=provider,
+                        )
+                    )
                 case _:
                     raise FailedToParseOutput(repr(line))
         return relays
