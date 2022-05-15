@@ -21,6 +21,7 @@ class StatusName(enum.Enum):
     CONNECTED = "connected"
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
+    DISCONNECTING = "disconnecting"
 
 
 @dataclass
@@ -83,19 +84,22 @@ class Mullvad:
         output, _ = cls._execute(["mullvad", "status", *location_arg])
         strict = False if full and "location data unavailable" in output.lower() else True
         parsed = cls._parse_key_value_output(output, strict)
-        if "disconnected" in parsed["tunnel status"].lower():
+        tunnel_status = parsed["tunnel status"].lower()
+        if (disconnected := "disconnected" in tunnel_status) or "disconnecting" in tunnel_status:
+            status = StatusName.DISCONNECTED if disconnected else StatusName.DISCONNECTING
             return Status(
                 connected=False,
-                status=StatusName.DISCONNECTED,
+                status=status,
                 ipv4=parsed.get("ipv4", None),
                 location=parsed.get("location", None),
                 position=parsed.get("position", None),
             )
-        pattern = re.compile(
+
+        status_pattern = re.compile(
             r"^((?:Connected)|(?:Connecting)) to ([a-zA-Z]+) ([0-9\.\:]+) over"
             r" ([a-zA-Z]+)(?:\.\.\.)?$"
         )
-        match re.match(pattern, ts := parsed["tunnel status"].strip()):
+        match status_pattern.match(ts := parsed["tunnel status"].strip()):
             case re.Match() as m:
                 return Status(
                     connected=(m.group(1).lower() == StatusName.CONNECTED.value),
