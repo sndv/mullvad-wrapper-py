@@ -28,12 +28,9 @@ class StatusName(enum.Enum):
 class Status:
     connected: bool
     status: StatusName
-    protocol: str = None
-    server_address: str = None
-    connection_type: str = None
-    relay_hostname: str = None
-    ipv4: str = None
+    server_name: str = None
     location: str = None
+    ipv4: str = None
     position: str = None
 
 
@@ -82,38 +79,36 @@ class Mullvad:
     def status(cls, full: bool = False) -> Status:
         location_arg = ["--location"] if full else []
         output, _ = cls._execute(["mullvad", "status", *location_arg])
+        tunnel_status = output.split("\n", 1)[0].strip()
         strict = False if full and "location data unavailable" in output.lower() else True
-        parsed = cls._parse_key_value_output(output, strict)
-        tunnel_status = parsed["tunnel status"].lower()
-        if (disconnected := "disconnected" in tunnel_status) or "disconnecting" in tunnel_status:
+        parsed = cls._parse_key_value_output(output.split("\n", 1)[1], strict)
+        if (
+            disconnected := "disconnected" in tunnel_status.lower()
+        ) or "disconnecting" in tunnel_status.lower():
             status = StatusName.DISCONNECTED if disconnected else StatusName.DISCONNECTING
             return Status(
                 connected=False,
                 status=status,
                 ipv4=parsed.get("ipv4", None),
-                location=parsed.get("location", None),
                 position=parsed.get("position", None),
             )
 
         status_pattern = re.compile(
-            r"^((?:Connected)|(?:Connecting)) to ([a-zA-Z]+) ([0-9\.\:]+) over"
-            r" ([a-zA-Z]+)(?:\.\.\.)?$"
+            r"^((?:Connected)|(?:Connecting)) to ([a-zA-Z0-9\-]+) in"
+            r" ([a-zA-Z0-9 \,\-]+)(?:\.\.\.)?$"
         )
-        match status_pattern.match(ts := parsed["tunnel status"].strip()):
+        match status_pattern.match(tunnel_status):
             case re.Match() as m:
                 return Status(
                     connected=(m.group(1).lower() == StatusName.CONNECTED.value),
                     status=StatusName(m.group(1).lower()),
-                    protocol=m.group(2),
-                    server_address=m.group(3),
-                    connection_type=m.group(4),
-                    relay_hostname=parsed.get("relay", None),
+                    server_name=m.group(2),
+                    location=m.group(3),
                     ipv4=parsed.get("ipv4", None),
-                    location=parsed.get("location", None),
                     position=parsed.get("position", None),
                 )
             case _:
-                raise FailedToParseOutput(repr(ts))
+                raise FailedToParseOutput(repr(tunnel_status))
 
     @classmethod
     def connect(cls, wait: bool = True) -> None:
