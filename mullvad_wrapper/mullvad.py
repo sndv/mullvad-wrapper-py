@@ -52,6 +52,7 @@ class Relay:
     ipv6: str | None
     protocol: str
     provider: str
+    ownership: str
 
 
 class Mullvad:
@@ -143,10 +144,10 @@ class Mullvad:
                 raise FailedToParseOutput(sl)
 
     @staticmethod
-    def _parse_relay_list_server_line(line: str) -> tuple[str, str, str, str, str]:
+    def _parse_relay_list_server_line(line: str) -> tuple[str, str, str, str, str, str]:
         server_re = re.compile(
             r"^([a-z0-9\-]+) \(([0-9\.]+)(?:, ([0-9a-f\:]+))?\) \- ([a-zA-Z]+)\, hosted by"
-            r" ([a-zA-Z0-9]+)$"
+            r" ([a-zA-Z0-9]+) \(((?:rented)|(?:Mullvad-owned))\)$"
         )
         match server_re.match(sl := line.strip()):
             case re.Match() as m:
@@ -169,9 +170,14 @@ class Mullvad:
                 case 1:  # City line
                     city = cls._parse_relay_list_city_line(line)
                 case 2:  # Server line
-                    hostname, ipv4, ipv6, protocol, provider = cls._parse_relay_list_server_line(
-                        line
-                    )
+                    (
+                        hostname,
+                        ipv4,
+                        ipv6,
+                        protocol,
+                        provider,
+                        ownership,
+                    ) = cls._parse_relay_list_server_line(line)
                     relays.append(
                         Relay(
                             country=country[0],
@@ -184,6 +190,7 @@ class Mullvad:
                             ipv6=ipv6,
                             protocol=protocol,
                             provider=provider,
+                            ownership=ownership,
                         )
                     )
                 case _:
