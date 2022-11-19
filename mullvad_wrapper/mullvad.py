@@ -96,7 +96,7 @@ class Mullvad:
 
         status_pattern = re.compile(
             r"^((?:Connected)|(?:Connecting)) to ([a-zA-Z0-9\-]+) in"
-            r" ([a-zA-Z0-9 \,\-]+)(?:\.\.\.)?$"
+            r" ([\w \,\-]+)(?:\.\.\.)?$"
         )
         match status_pattern.match(tunnel_status):
             case re.Match() as m:
