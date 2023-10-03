@@ -28,10 +28,10 @@ class StatusName(enum.Enum):
 class Status:
     connected: bool
     status: StatusName
-    server_name: str = None
-    location: str = None
-    ipv4: str = None
-    position: str = None
+    server_name: str | None = None
+    location: str | None = None
+    ipv4: str | None = None
+    position: str | None = None
 
 
 @dataclass
@@ -178,6 +178,10 @@ class Mullvad:
                         provider,
                         ownership,
                     ) = cls._parse_relay_list_server_line(line)
+                    if country is None:
+                        raise FailedToParseOutput(f"No country before line: {line!r}")
+                    if city is None:
+                        raise FailedToParseOutput(f"No city before line: {line!r}")
                     relays.append(
                         Relay(
                             country=country[0],
