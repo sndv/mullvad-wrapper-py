@@ -63,13 +63,13 @@ class Mullvad:
         return Account(output_dict["mullvad account"], dt_parse(output_dict["expires at"]))
 
     @classmethod
-    def always_require_vpn(cls, new_value: bool | None = None) -> bool:
+    def lockdown_mode(cls, new_value: bool | None = None) -> bool:
         if new_value is not None:
             policy = "on" if new_value else "off"
             # TODO: check output
-            cls._execute(["mullvad", "always-require-vpn", "set", policy])
+            cls._execute(["mullvad", "lockdown-mode", "set", policy])
             return new_value
-        output, _ = cls._execute(["mullvad", "always-require-vpn", "get"])
+        output, _ = cls._execute(["mullvad", "lockdown-mode", "get"])
         if "traffic will be allowed" in output:
             return False
         if "traffic will be blocked":
