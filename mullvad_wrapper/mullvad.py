@@ -9,11 +9,11 @@ from dataclasses import dataclass
 from dateutil.parser import parse as dt_parse
 
 
-class MullvadErorr(Exception):
+class MullvadError(Exception):
     pass
 
 
-class FailedToParseOutput(MullvadErorr):
+class FailedToParseOutput(MullvadError):
     pass
 
 
@@ -208,7 +208,7 @@ class Mullvad:
             case Relay(hostname=hostname) | str(hostname):
                 cls._set_relay(hostname)
             case _:
-                raise MullvadErorr(f"unexpected relay: f{relay!r}")
+                raise MullvadError(f"unexpected relay: f{relay!r}")
 
     @classmethod
     def _set_relay(cls, hostname: str):
