@@ -1,9 +1,9 @@
 from __future__ import annotations
-import enum
 
+import datetime as dt
+import enum
 import re
 import subprocess
-import datetime as dt
 from dataclasses import dataclass
 
 from dateutil.parser import parse as dt_parse
@@ -95,8 +95,7 @@ class Mullvad:
             )
 
         status_pattern = re.compile(
-            r"^((?:Connected)|(?:Connecting)) to ([a-zA-Z0-9\-]+) in"
-            r" ([\w \,\-]+)(?:\.\.\.)?$"
+            r"^((?:Connected)|(?:Connecting)) to ([a-zA-Z0-9\-]+) in ([\w \,\-]+)(?:\.\.\.)?$"
         )
         match status_pattern.match(tunnel_status):
             case re.Match() as m:
@@ -159,7 +158,7 @@ class Mullvad:
     def relay_list(cls) -> list[Relay]:
         output, _ = cls._execute(["mullvad", "relay", "list"])
         country = city = None
-        relays = []
+        relays: list[Relay] = []
         for line in output.splitlines():
             if not line.strip():
                 continue
@@ -232,7 +231,7 @@ class Mullvad:
 
     @staticmethod
     def _parse_key_value_output(output: str, strict: bool = True) -> dict[str, str]:
-        result = {}
+        result: dict[str, str] = {}
         for line in output.strip().splitlines():
             split_line = line.split(":", 1)
             if len(split_line) != 2:
