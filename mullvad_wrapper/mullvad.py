@@ -216,7 +216,7 @@ class Mullvad:
     @classmethod
     def _set_relay(cls, hostname: str):
         # TODO: Catch error for no matching server
-        cls._execute(["mullvad", "relay", "set", "hostname", hostname])
+        cls._execute(["mullvad", "relay", "set", "location", hostname])
 
     @classmethod
     def _connection_change(cls, change_cmd: str, wait: bool) -> None:

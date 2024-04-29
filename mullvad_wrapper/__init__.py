@@ -1,3 +1,3 @@
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
-from .mullvad import Mullvad, MullvadError, FailedToParseOutput, Status, Account, Relay
+from .mullvad import Account, FailedToParseOutput, Mullvad, MullvadError, Relay, Status
