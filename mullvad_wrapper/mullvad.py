@@ -77,12 +77,21 @@ class Mullvad:
         raise FailedToParseOutput(repr(output))
 
     @classmethod
-    def status(cls, full: bool = False) -> Status:
-        location_arg = ["--location"] if full else []
-        output, _ = cls._execute(["mullvad", "status", *location_arg])
-        tunnel_status = output.split("\n", 1)[0].strip()
-        strict = False if full and "location data unavailable" in output.lower() else True
-        parsed = cls._parse_key_value_output(output.split("\n", 1)[1], strict)
+    def status(cls) -> Status:
+        output, _ = cls._execute(["mullvad", "status"])
+        output_lines = output.strip().splitlines()
+        tunnel_status = output_lines[0].strip()
+        location_info = output_lines[1].strip() if len(output_lines) > 1 else ""
+
+        location_info_pattern = re.compile(
+            r"Your connection appears to be from: ([\w \,\-]+)\.? IPv4: ((?:\d{1,3}\.?\b){4})"
+        )
+
+        location_parsed: dict[str, str] = {}
+        if m := location_info_pattern.match(location_info):
+            location_parsed["position"] = m.group(1)
+            location_parsed["ipv4"] = m.group(2)
+
         if (
             disconnected := "disconnected" in tunnel_status.lower()
         ) or "disconnecting" in tunnel_status.lower():
@@ -90,8 +99,8 @@ class Mullvad:
             return Status(
                 connected=False,
                 status=status,
-                ipv4=parsed.get("ipv4", None),
-                position=parsed.get("position", None),
+                ipv4=location_parsed.get("ipv4", None),
+                position=location_parsed.get("position", None),
             )
 
         status_pattern = re.compile(
@@ -104,8 +113,8 @@ class Mullvad:
                     status=StatusName(m.group(1).lower()),
                     server_name=m.group(2),
                     location=m.group(3),
-                    ipv4=parsed.get("ipv4", None),
-                    position=parsed.get("position", None),
+                    ipv4=location_parsed.get("ipv4", None),
+                    position=location_parsed.get("position", None),
                 )
             case _:
                 raise FailedToParseOutput(repr(tunnel_status))
