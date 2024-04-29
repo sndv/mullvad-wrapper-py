@@ -1,0 +1,17 @@
+[tool.basedpyright]
+typeCheckingMode = "strict"
+reportUnknownParameterType = "warning"
+reportUnknownArgumentType = "warning"
+reportUnknownLambdaType = "warning"
+reportUnknownMemberType = "warning"
+reportUnknownVariableType = "warning"
+reportMissingTypeArgument = "warning"
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 98
+target-version = ['py311']
+preview = true
+unstable = true
